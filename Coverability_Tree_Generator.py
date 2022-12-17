@@ -37,10 +37,11 @@ class CoverabilityTree(object):
     def check_duplicate(self):
         if np.size(self.previous_states) == 0:
             return
-        for i in range(0, (int)((np.size(self.previous_states) / self.places) - 1)):
+        for i in range(0,int((np.size(self.previous_states) / self.places))):
             if np.equal(self.state, np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
                                                         self.previous_states[:, i], axis=1), 1, axis=1)).all():
-                self.status = str(np.transpose(self.state)) + 'Duplicate'
+                if 'Duplicate' not in self.status:
+                    self.status = self.status + 'Duplicate'
 
     def check_dominance(self):
         if np.size(self.previous_states) == 0:
@@ -61,6 +62,7 @@ class CoverabilityTree(object):
                 for g in range(0, np.size(self.state)):
                     if self.state[g] > previous_state[g]:
                         self.state[g] = -3
+                        self.status = str(np.transpose(self.state))
 
     def transition_fire(self, fire):
         dominant_places = np.zeros(np.size(self.state))
