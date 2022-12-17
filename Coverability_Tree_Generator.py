@@ -10,11 +10,11 @@ class CoverabilityTree(object):
         self.previous_states = np.array([])
         self.child_branches = np.array([])
         self.transitions = 0
-        self.places=0
+        self.places = 0
         self.status = str(np.transpose(state))
 
     def __str__(self, level=0):  # defining the printout of the class
-        ret = "\t" * level + str(level) + " Fire: " + str.replace(self.status,'-3','w') + "\n"
+        ret = "\t" * level + str(level) + " Fire: " + str.replace(self.status, '-3', 'w') + "\n"
         for children in self.child_branches:
             if children == 'Not Fired':
                 ret += "\t" * (level + 1) + str(level + 1) + " Fire: " + 'Not Fired' + "\n"
@@ -32,7 +32,7 @@ class CoverabilityTree(object):
         self.transitions = len(self.output_incident_matrix[0])
 
     def calculate_place_count(self):
-        self.places = int(np.size(self.output_incident_matrix)/self.transitions)
+        self.places = int(np.size(self.output_incident_matrix) / self.transitions)
 
     def check_duplicate(self):
         if np.size(self.previous_states) == 0:
@@ -40,7 +40,7 @@ class CoverabilityTree(object):
         for i in range(0, (int)((np.size(self.previous_states) / self.places) - 1)):
             if np.equal(self.state, np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
                                                         self.previous_states[:, i], axis=1), 1, axis=1)).all():
-                self.status = str(np.transpose(self.state))+'Duplicate'
+                self.status = str(np.transpose(self.state)) + 'Duplicate'
 
     def check_dominance(self):
         if np.size(self.previous_states) == 0:
@@ -58,10 +58,11 @@ class CoverabilityTree(object):
                 else:
                     dominance[j] = False
             if dominance.all():
-                for j in range(0, np.size(self.state)):
-                    if self.state[j] > previous_state[j]:
-                        self.state[j] = -3
-    def transition_fire(self,fire):
+                for g in range(0, np.size(self.state)):
+                    if self.state[g] > previous_state[g]:
+                        self.state[g] = -3
+
+    def transition_fire(self, fire):
         dominant_places = np.zeros(np.size(self.state))
         for j in range(0, np.size(self.state)):
             if self.state[j] == -3:
@@ -72,13 +73,13 @@ class CoverabilityTree(object):
                 dominant_places[j] = False
         return dominant_places.all()
 
-    def new_state(self,tokens):
-        child = np.zeros((np.size(self.state),1))
-        for j in range(np.size(self.state),1):
+    def new_state(self, tokens):
+        child = np.zeros((np.size(self.state), 1), dtype=int)
+        for j in range(0, np.size(self.state)):
             if self.state[j] == -3:
-                child[j,1] = -3
+                child[j] = -3
             else:
-                child[j,1] = self.state[j] + tokens[j]
+                child[j] = self.state[j] + tokens[j]
         return child
 
     def find_transition_states(self):
@@ -129,14 +130,14 @@ def create_coverability_tree(initial_node):
         create_coverability_tree(children)
 
 
-p1_i = np.array([1,0,0])
-p2_i = np.array([1,0,0])
-p3_i = np.array([0,1,0])
-p4_i = np.array([0,0,1])
-p1_o = np.array([0,1,0])
-p2_o = np.array([0,1,1])
-p3_o = np.array([1,0,0])
-p4_o = np.array([0,1,0])
+p1_i = np.array([1, 0, 0])
+p2_i = np.array([1, 0, 0])
+p3_i = np.array([0, 1, 0])
+p4_i = np.array([0, 0, 1])
+p1_o = np.array([0, 1, 0])
+p2_o = np.array([0, 1, 1])
+p3_o = np.array([1, 0, 0])
+p4_o = np.array([0, 1, 0])
 input_incident_matrix = np.array([p1_i, p2_i, p3_i, p4_i])
 output_incident_matrix = np.array([p1_o, p2_o, p3_o, p4_o])
 initial_state = np.array([[1], [1], [0], [0]])
