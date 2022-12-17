@@ -10,13 +10,14 @@ class CoverabilityTree(object):
         self.previous_states = np.array([])
         self.child_branches = np.array([])
         self.transitions = 0
+        self.places=0
         self.status = str(np.transpose(state))
 
     def __str__(self, level=0):  # defining the printout of the class
-        ret = "\t" * level + str(level) + " Fire: " + self.status + "\n"
+        ret = "\t" * level + str(level) + " Fire: " + str.replace(self.status,'-3','w') + "\n"
         for children in self.child_branches:
-            if children=='Not Fired':
-                ret += "\t"*(level+1)+str(level+1) + " Fire: "+ 'Not Fired' + "\n"
+            if children == 'Not Fired':
+                ret += "\t" * (level + 1) + str(level + 1) + " Fire: " + 'Not Fired' + "\n"
             else:
                 ret += children.__str__(level + 1)
         return ret
@@ -30,29 +31,71 @@ class CoverabilityTree(object):
     def calculate_transition_count(self):
         self.transitions = len(self.output_incident_matrix[0])
 
+    def calculate_place_count(self):
+        self.places = int(np.size(self.output_incident_matrix)/self.transitions)
+
     def check_duplicate(self):
         if np.size(self.previous_states) == 0:
             return
-        for i in range(0, (int)((np.size(self.previous_states) / self.transitions) - 1)):
-            if np.equal(self.state, np.delete(np.insert(np.zeros((12, 1), dtype=int), 0,
+        for i in range(0, (int)((np.size(self.previous_states) / self.places) - 1)):
+            if np.equal(self.state, np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
                                                         self.previous_states[:, i], axis=1), 1, axis=1)).all():
                 self.status = str(np.transpose(self.state))+'Duplicate'
 
+    def check_dominance(self):
+        if np.size(self.previous_states) == 0:
+            return
+        state_count = int((np.size(self.previous_states) / self.places) - 1)
+        for i in range(0, state_count):
+            previous_state = np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
+                                                 self.previous_states[:, i], axis=1), 1, axis=1)
+            dominance = np.zeros(np.size(self.state))
+            for j in range(0, np.size(self.state)):
+                if self.state[j] == -3:
+                    dominance[j] = True
+                elif self.state[j] >= previous_state[j]:
+                    dominance[j] = True
+                else:
+                    dominance[j] = False
+            if dominance.all():
+                for j in range(0, np.size(self.state)):
+                    if self.state[j] > previous_state[j]:
+                        self.state[j] = -3
+    def transition_fire(self,fire):
+        dominant_places = np.zeros(np.size(self.state))
+        for j in range(0, np.size(self.state)):
+            if self.state[j] == -3:
+                dominant_places[j] = True
+            elif self.state[j] >= fire[j]:
+                dominant_places[j] = True
+            else:
+                dominant_places[j] = False
+        return dominant_places.all()
+
+    def new_state(self,tokens):
+        child = np.zeros((np.size(self.state),1))
+        for j in range(np.size(self.state),1):
+            if self.state[j] == -3:
+                child[j,1] = -3
+            else:
+                child[j,1] = self.state[j] + tokens[j]
+        return child
+
     def find_transition_states(self):
         times_fired = 0
-        if 'Duplicate' in self.status :
+        if 'Duplicate' in self.status:
             self.child_branches = np.array([])
             return
         for i in range(0, self.transitions):
-            firing_input = np.delete(np.insert(np.zeros((12, 1), dtype=int), 0,
+            firing_input = np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
                                                self.input_incident_matrix[:, i], axis=1), 1, axis=1)
-            if np.greater_equal(self.state, firing_input).all():
-                token_move = np.delete(np.insert(np.zeros((12, 1), dtype=int), 0,
+            if self.transition_fire(firing_input):
+                token_move = np.delete(np.insert(np.zeros((self.places, 1), dtype=int), 0,
                                                  self.incident_matrix[:, i], axis=1), 1, axis=1)
                 self.child_branches = np.append(self.child_branches,
                                                 CoverabilityTree(self.input_incident_matrix,
                                                                  self.output_incident_matrix,
-                                                                 self.state + token_move))
+                                                                 self.new_state(token_move)))
 
                 if np.size(self.previous_states) == 0:
                     self.child_branches[i].previous_states = self.state
@@ -65,7 +108,7 @@ class CoverabilityTree(object):
                 else:
                     self.child_branches = np.concatenate([self.child_branches, ['Not Fired']])
         if times_fired == 0:
-            self.status =str(np.transpose(self.state))+'Terminal Node'
+            self.status = str(np.transpose(self.state)) + 'Terminal Node'
             self.child_branches = np.array([])
 
 
@@ -76,6 +119,8 @@ def create_coverability_tree(initial_node):
         return
     initial_node.calculate_incident_matrix()
     initial_node.calculate_transition_count()
+    initial_node.calculate_place_count()
+    initial_node.check_dominance()
     initial_node.check_duplicate()
     initial_node.find_transition_states()
     if np.size(initial_node.child_branches) == 0:
@@ -84,33 +129,17 @@ def create_coverability_tree(initial_node):
         create_coverability_tree(children)
 
 
-p1_i = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-p2_i = np.array([0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-p3_i = np.array([0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 0, 0])
-p4_i = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
-p5_i = np.array([0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
-p6_i = np.array([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0])
-p7_i = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0])
-p8_i = np.array([0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 0, 0])
-p9_i = np.array([0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 0, 0])
-p10_i = np.array([1, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0])
-p11_i = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 1])
-p12_i = np.array([0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 1, 0])
-p1_o = np.array([0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0])
-p2_o = np.array([1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
-p3_o = np.array([0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0])
-p4_o = np.array([0, 0, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0])
-p5_o = np.array([0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0])
-p6_o = np.array([0, 0, 0, 0, 0, 0, 1, 0, 1, 0, 0, 0])
-p7_o = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 1])
-p8_o = np.array([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0])
-p9_o = np.array([1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1])
-p10_o = np.array([0, 1, 1, 0, 0, 0, 0, 1, 0, 0, 0, 0])
-p11_o = np.array([0, 0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 0])
-p12_o = np.array([0, 0, 0, 1, 0, 0, 0, 0, 1, 1, 0, 0])
-input_incident_matrix = np.array([p1_i, p2_i, p3_i, p4_i, p5_i, p6_i, p7_i, p8_i, p9_i, p10_i, p11_i, p12_i])
-output_incident_matrix = np.array([p1_o, p2_o, p3_o, p4_o, p5_o, p6_o, p7_o, p8_o, p9_o, p10_o, p11_o, p12_o])
-initial_state = np.array([[0], [1], [0], [0], [1], [0], [0], [0], [0], [0], [1], [1]])
+p1_i = np.array([1,0,0])
+p2_i = np.array([1,0,0])
+p3_i = np.array([0,1,0])
+p4_i = np.array([0,0,1])
+p1_o = np.array([0,1,0])
+p2_o = np.array([0,1,1])
+p3_o = np.array([1,0,0])
+p4_o = np.array([0,1,0])
+input_incident_matrix = np.array([p1_i, p2_i, p3_i, p4_i])
+output_incident_matrix = np.array([p1_o, p2_o, p3_o, p4_o])
+initial_state = np.array([[1], [1], [0], [0]])
 cat_mouse_coverability_tree = CoverabilityTree(input_incident_matrix, output_incident_matrix, initial_state)
 create_coverability_tree(cat_mouse_coverability_tree)
 print(cat_mouse_coverability_tree)
